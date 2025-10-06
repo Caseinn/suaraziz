@@ -1,0 +1,158 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+/// ---------- NextAuth core models ----------
+model User {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  // NextAuth-expected fields
+  email           String?  @unique
+  emailVerified   DateTime?
+  name            String?
+  image           String?
+
+  // Your app fields (RELAXED)
+  spotifyId       String?        // <- remove @unique
+  displayName     String?
+  createdAt       DateTime @default(now())
+
+  // Relations
+  accounts    Account[]
+  sessions    Session[]
+  reviews     Review[]
+  likes       Like[]
+  comments    Comment[]
+  lists       List[]
+
+  @@index([createdAt])
+}
+
+model Account {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String   @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.String
+  access_token      String?  @db.String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.String
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Track {
+  id         String   @id @map("_id")
+  name       String
+  artists    String[]
+  album      String
+  albumImage String?
+  previewUrl String?
+  popularity Int?
+  cachedAt   DateTime @default(now())
+
+  reviews    Review[]
+
+  @@index([cachedAt])
+  @@index([name])
+}
+
+model Review {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  authorId  String   @db.ObjectId
+  trackId   String
+  rating    Int
+  title     String?
+  body      String
+  likes     Int      @default(0) // ← this is a counter, keep it if you want
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author    User     @relation(fields: [authorId], references: [id])
+  track     Track    @relation(fields: [trackId], references: [id])
+
+  likesRel  Like[] 
+
+  comments  Comment[]
+
+  @@index([trackId])
+  @@index([authorId, createdAt])
+}
+
+
+model Like {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  reviewId  String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@index([reviewId])
+}
+
+model Comment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  authorId  String   @db.ObjectId
+  reviewId  String   @db.ObjectId
+  body      String
+  createdAt DateTime @default(now())
+
+  author User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model List {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId   String   @db.ObjectId
+  name      String
+  trackIds  String[]
+  createdAt DateTime @default(now())
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, createdAt])
+}
