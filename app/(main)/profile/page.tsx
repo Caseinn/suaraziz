@@ -169,9 +169,11 @@ export default async function ProfilePage() {
                 <span>Avg</span>
                 <Star className="w-4 h-4" />
               </div>
-              <div className="mt-1 flex items-center gap-2 text-xl font-semibold">
+              <div className="mt-1 flex items-center gap-1 text-xl font-semibold">
                 {avgGiven.toFixed(1)}
-                <Stars value={avgGiven} />
+                <span className="hidden sm:inline"> {/* Only show stars on sm+ */}
+                  <Stars value={avgGiven} />
+                </span>
               </div>
             </div>
             <div className="rounded-xl border p-3">
