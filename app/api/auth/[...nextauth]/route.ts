@@ -1,5 +1,4 @@
 // app/api/auth/[...nextauth]/route.ts
-
 import NextAuth, { type AuthOptions } from "next-auth"
 import SpotifyProvider from "next-auth/providers/spotify"
 import { PrismaAdapter } from "@auth/prisma-adapter"
@@ -13,22 +12,17 @@ export const authOptions: AuthOptions = {
     SpotifyProvider({
       clientId: process.env.SPOTIFY_CLIENT_ID!,
       clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
-      authorization:
-        "https://accounts.spotify.com/authorize?scope=user-read-email",
-      profile(profile) {
-        return {
-          id: profile.id,
-          name: profile.display_name ?? null,
-          email: profile.email ?? null,
-          image: profile.images?.[0]?.url ?? null,
-        }
+      authorization: {
+        params: {
+          scope: "user-read-email user-read-private",
+        },
       },
     }),
   ],
   callbacks: {
-    async session({ session, user }) {
+    async session({ session, token, user }) {
       if (session.user) {
-        session.user.id = user.id
+        ;(session.user as { id?: string }).id = user?.id ?? token?.sub ?? ""
       }
       return session
     },
