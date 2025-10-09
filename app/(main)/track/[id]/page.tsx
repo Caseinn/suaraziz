@@ -73,6 +73,7 @@ export default async function TrackPage({
             alt={track.name}
             width={96}
             height={96}
+            loading="lazy"
             className="w-24 h-24 rounded-xl object-cover border"
           />
         )}

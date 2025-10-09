@@ -70,6 +70,7 @@ export function Trending() {
                         alt={t.name}
                         width={500}
                         height={500}
+                        loading="lazy"
                         className="w-full aspect-square object-cover border rounded-lg transition-transform duration-300 ease-out group-hover:scale-105"
                       />
                     ) : (

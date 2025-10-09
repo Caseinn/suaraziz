@@ -43,13 +43,47 @@ async function getAppToken(): Promise<string> {
   return json.access_token
 }
 
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+
 export async function GET(req: Request) {
   const url = new URL(req.url)
   const q = url.searchParams.get("q")?.trim()
   if (!q) return NextResponse.json({ items: [] })
 
-  const token = await getAppToken()
+  // 1) Try cache first (7 days), with OR across name/album/artists
+  const existingTracks = await prisma.track.findMany({
+    where: {
+      cachedAt: { gte: new Date(Date.now() - CACHE_MAX_AGE_MS) },
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { album: { contains: q, mode: "insensitive" } },
+        { artists: { has: q } },
+      ],
+    },
+    take: 10,
+    select: {
+      id: true,
+      name: true,
+      artists: true,
+      album: true,
+      albumImage: true,
+    },
+  })
 
+  if (existingTracks.length > 0) {
+    return NextResponse.json({
+      items: existingTracks.map((t) => ({
+        id: t.id,
+        name: t.name,
+        artists: t.artists,
+        album: t.album,
+        image: t.albumImage ?? undefined,
+      })),
+    })
+  }
+
+  // 2) Fallback to Spotify
+  const token = await getAppToken()
   const r = await fetch(
     `https://api.spotify.com/v1/search?type=track&limit=10&q=${encodeURIComponent(q)}`,
     { headers: { Authorization: `Bearer ${token}` } }
@@ -66,7 +100,7 @@ export async function GET(req: Request) {
   const data = (await r.json()) as SpotifySearchResponse
   const tracks: SpotifyTrack[] = data.tracks?.items ?? []
 
-  // cache to DB
+  // 3) Cache results (upsert)
   await Promise.all(
     tracks.map((t) =>
       prisma.track.upsert({
@@ -79,7 +113,7 @@ export async function GET(req: Request) {
           albumImage: t.album.images?.[0]?.url ?? null,
           previewUrl: t.preview_url ?? null,
           popularity: t.popularity ?? null,
-          // cachedAt is defaulted by Prisma if you set default; otherwise DB will set on update below
+          cachedAt: new Date(),
         },
         update: {
           name: t.name,
@@ -94,6 +128,7 @@ export async function GET(req: Request) {
     )
   )
 
+  // 4) Public response
   return NextResponse.json({
     items: tracks.map((t) => ({
       id: t.id,

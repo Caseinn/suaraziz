@@ -86,6 +86,7 @@ export default async function PublicProfilePage({
                 alt={user.name ?? "User"}
                 width={64}
                 height={64}
+                loading="lazy"
                 className="rounded-full border"
               />
             ) : (
@@ -173,8 +174,9 @@ export default async function PublicProfilePage({
                             <Image
                               src={t.albumImage}
                               alt={t.name}
-                              fill
-                              sizes="56px"
+                              height={56}
+                              width={56}
+                              loading="lazy"
                               className="object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
@@ -213,8 +215,9 @@ export default async function PublicProfilePage({
                           <Image
                             src={t.albumImage}
                             alt={t.name}
-                            fill
-                            sizes="56px"
+                            height={56}
+                            width={56}
+                            loading="lazy"
                             className="object-cover transition-transform duration-300 group-hover:scale-105"
                           />
                         ) : (

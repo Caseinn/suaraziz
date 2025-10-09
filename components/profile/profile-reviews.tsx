@@ -134,6 +134,7 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
                   alt={t.name} 
                   width={64}
                   height={64}
+                  loading="lazy"
                   className="w-16 h-16 rounded-lg object-cover border"  />
                 )}
 

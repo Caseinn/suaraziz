@@ -1,6 +1,5 @@
 // components/review/review-form.tsx
 "use client"
-
 import * as React from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -9,20 +8,21 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Star, LockKeyhole } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 type Props = {
   trackId: string
   disabled?: boolean
-  signInHref?: string // e.g. "/sign-in"
+  signInHref?: string
 }
 
 export default function ReviewForm({ trackId, disabled = false, signInHref = "/sign-in" }: Props) {
+  const router = useRouter() 
   const [rating, setRating] = React.useState<number>(0)
   const [hovered, setHovered] = React.useState<number | null>(null)
   const [title, setTitle] = React.useState("")
   const [body, setBody] = React.useState("")
   const [loading, setLoading] = React.useState(false)
-
   const canSubmit = !disabled && body.trim().length > 0 && rating >= 1 && rating <= 5
 
   async function onSubmit(e: React.FormEvent) {
@@ -36,7 +36,7 @@ export default function ReviewForm({ trackId, disabled = false, signInHref = "/s
         body: JSON.stringify({ trackId, rating, title, body }),
       })
       if (!r.ok) throw new Error("Failed")
-      location.reload()
+      router.refresh()
     } finally {
       setLoading(false)
     }
@@ -44,7 +44,6 @@ export default function ReviewForm({ trackId, disabled = false, signInHref = "/s
 
   const formInner = (
     <>
-      {/* Rating stars */}
       <fieldset className="space-y-2" aria-disabled={disabled}>
         <legend className="text-sm font-medium">Your Rating</legend>
         <div className="flex items-center gap-1" role="radiogroup" aria-label="Rating out of 5">
@@ -76,7 +75,6 @@ export default function ReviewForm({ trackId, disabled = false, signInHref = "/s
           <span className="ml-2 text-sm text-muted-foreground">{rating}/5</span>
         </div>
       </fieldset>
-
       <div className="space-y-2">
         <Label htmlFor="title">Title (optional)</Label>
         <Input
@@ -87,7 +85,6 @@ export default function ReviewForm({ trackId, disabled = false, signInHref = "/s
           disabled={disabled}
         />
       </div>
-
       <div className="space-y-2">
         <Label htmlFor="body">Your Review</Label>
         <Textarea
@@ -99,7 +96,6 @@ export default function ReviewForm({ trackId, disabled = false, signInHref = "/s
           disabled={disabled}
         />
       </div>
-
       <Button
         type="submit"
         disabled={!canSubmit || loading}
@@ -115,7 +111,6 @@ export default function ReviewForm({ trackId, disabled = false, signInHref = "/s
       <form onSubmit={onSubmit} className={cn("space-y-4 rounded-2xl border p-4 bg-card/50")}>
         {formInner}
       </form>
-
       {disabled && (
         <div className="pointer-events-auto absolute inset-0 flex items-center justify-center rounded-2xl bg-background/60 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3 text-center">

@@ -42,6 +42,7 @@ export default async function Header() {
                       alt={user.name ?? "User"}
                       width={32}
                       height={32}
+                      loading="lazy"
                       className="rounded-full object-cover"
                     />
                   ) : (

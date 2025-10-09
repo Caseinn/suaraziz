@@ -87,6 +87,7 @@ export function FeaturedReviews() {
                             alt={item.author.name}
                             width={32}
                             height={32}
+                            loading="lazy"
                             className="w-8 h-8 rounded-full object-cover"
                           />
                         ) : (
@@ -124,6 +125,7 @@ export function FeaturedReviews() {
                             alt={item.track.name}
                             width={80}
                             height={80}
+                            loading="lazy"
                             className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
                           />
                         </div>

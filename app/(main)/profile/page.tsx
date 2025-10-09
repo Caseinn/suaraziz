@@ -134,6 +134,7 @@ export default async function ProfilePage() {
                 alt={user.name ?? "User"}
                 width={64}
                 height={64}
+                loading="lazy"
                 className="rounded-full border object-cover"
               />
             ) : (
@@ -225,6 +226,7 @@ export default async function ProfilePage() {
                               alt={t.name}
                               width={56}
                               height={56}
+                              loading="lazy"
                               className="rounded-lg object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
@@ -265,6 +267,7 @@ export default async function ProfilePage() {
                             alt={t.name}
                             width={56}
                             height={56}
+                            loading="lazy"
                             className="rounded-lg object-cover transition-transform duration-300 group-hover:scale-105"
                           />
                         ) : (

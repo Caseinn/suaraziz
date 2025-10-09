@@ -57,6 +57,7 @@ export default function PublicReviews({ initialItems }: { initialItems: Review[]
                     alt={t.name || "Album art"}
                     width={48}
                     height={48}
+                    loading="lazy"
                     className="w-12 h-12 rounded-lg object-cover border"
                   />
                 </Link>
