@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import ReviewForm from "@/components/review/review-form"
 import ReviewsList from "@/components/review/review-list"
+import { unstable_noStore as noStore } from "next/cache"
 
 const PAGE_SIZE = 10
 
@@ -28,12 +29,14 @@ function Stars({ value }: { value: number }) {
   )
 }
 
+// NOTE: params is a Promise in your setup → await it.
 export default async function TrackPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  // ✅ do NOT await params
+  noStore()
+
   const { id } = await params
 
   const track = await prisma.track.findUnique({ where: { id } })
@@ -58,8 +61,6 @@ export default async function TrackPage({
   }
 
   const avg = avgAgg._avg.rating ?? 0
-
-  // ✅ no 'any' — strongly type the session user
   const user = session?.user as SessionUser | undefined
   const currentUserId = user?.id ?? null
 
@@ -91,7 +92,7 @@ export default async function TrackPage({
         </div>
       </header>
 
-      {/* Always render form; lock it if signed out */}
+      {/* Form (locked if signed out) */}
       <ReviewForm trackId={track.id} disabled={!currentUserId} signInHref="/sign-in" />
 
       {/* Reviews */}

@@ -1,18 +1,21 @@
+// app/api/reviews/route.ts
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { requireUserId } from "@/lib/requireUser"
+import { revalidatePath } from "next/cache"
+
+export const dynamic = "force-dynamic"
+
+const BODY_MAX = 800
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
   const trackId = url.searchParams.get("trackId")
   const limitParam = url.searchParams.get("limit")
   const cursorId = url.searchParams.get("cursor")
-
   if (!trackId) return NextResponse.json({ items: [], avg: null, nextCursor: null })
-
-  const limit = Math.max(1, Math.min(Number(limitParam) || 10, 50)) // safe bounds
-  const take = limit + 1 // fetch one extra to check if more pages exist
-
+  const limit = Math.max(1, Math.min(Number(limitParam) || 10, 50))
+  const take = limit + 1
   const [itemsPlusOne, avgAgg] = await Promise.all([
     prisma.review.findMany({
       where: { trackId },
@@ -23,17 +26,13 @@ export async function GET(req: Request) {
     }),
     prisma.review.aggregate({ where: { trackId }, _avg: { rating: true } }),
   ])
-
-  // Derive nextCursor
   let nextCursor: string | null = null
   let items = itemsPlusOne
-
   if (itemsPlusOne.length > limit) {
     const nextItem = itemsPlusOne[itemsPlusOne.length - 1]
     nextCursor = nextItem.id
     items = itemsPlusOne.slice(0, limit)
   }
-
   return NextResponse.json({
     items,
     avg: avgAgg._avg.rating ?? null,
@@ -44,7 +43,20 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const userId = await requireUserId()
   const { trackId, rating, title, body } = await req.json()
-  if (!trackId || !rating || !body) return NextResponse.json({ error: "Invalid" }, { status: 400 })
+
+  if (!trackId) {
+    return NextResponse.json({ error: "Missing trackId" }, { status: 400 })
+  }
+
+  const r = Number(rating)
+  if (!Number.isFinite(r) || r < 1 || r > 5) {
+    return NextResponse.json({ error: "Invalid rating" }, { status: 400 })
+  }
+
+  const b = String(body ?? "")
+  if (b.length === 0 || b.length > BODY_MAX) {
+    return NextResponse.json({ error: "Invalid body length" }, { status: 400 })
+  }
 
   await prisma.track.upsert({
     where: { id: trackId },
@@ -53,10 +65,12 @@ export async function POST(req: Request) {
   })
 
   const review = await prisma.review.create({
-    data: { trackId, rating: Number(rating), title: title ?? null, body, authorId: userId },
+    data: { trackId, rating: r, title: title ?? null, body: b, authorId: userId },
     include: { author: true },
   })
 
+  // Revalidate the track page so avg/header and first page update
+  revalidatePath(`/track/${trackId}`)
+
   return NextResponse.json({ review })
 }
-

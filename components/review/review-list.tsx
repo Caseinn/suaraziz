@@ -1,3 +1,4 @@
+// components/review/review-list.tsx
 "use client"
 
 import * as React from "react"
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Stars } from "@/components/home/stars" // ⬅️ use your minimal star display
+import { Stars } from "@/components/home/stars"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -69,6 +70,29 @@ export default function ReviewsList({
   const [nextCursor, setNextCursor] = React.useState<string | null>(initialNextCursor)
   const [loading, setLoading] = React.useState(false)
 
+  // 🔁 IMPORTANT: resync when props change (after router.refresh)
+  React.useEffect(() => {
+    setItems(initialItems.map((r) => ({ ...r, createdAt: String(r.createdAt) })))
+    setNextCursor(initialNextCursor)
+  }, [initialItems, initialNextCursor])
+
+  // 🔔 Listen for newly-created review from the form and prepend
+  React.useEffect(() => {
+    const onCreated = (e: Event) => {
+      const ce = e as CustomEvent<Review>
+      const review = ce.detail
+      if (!review || review.trackId !== trackId) return
+      setItems((prev) => {
+        // avoid duplicate if router.refresh already brought it in
+        if (prev.some((x) => x.id === review.id)) return prev
+        const normalized = { ...review, createdAt: String(review.createdAt) }
+        return [normalized, ...prev]
+      })
+    }
+    window.addEventListener("review:created", onCreated as EventListener)
+    return () => window.removeEventListener("review:created", onCreated as EventListener)
+  }, [trackId])
+
   // edit dialog state
   const [editing, setEditing] = React.useState<Review | null>(null)
   const [editTitle, setEditTitle] = React.useState("")
@@ -88,7 +112,8 @@ export default function ReviewsList({
       editRating !== editing.rating)
 
   const overLimit = editBody.length > BODY_MAX
-  const canSave = !!dirty && !saving && !!editBody.trim() && !overLimit
+  const canSave =
+    !!dirty && !saving && !!editBody.trim() && !overLimit && editRating >= 1 && editRating <= 5
 
   const startEdit = (r: Review) => {
     setEditing(r)
@@ -228,11 +253,14 @@ export default function ReviewsList({
 
                   <span className="text-muted-foreground">•</span>
                   <time dateTime={createdIso} className="text-muted-foreground">
-                    {new Date(r.createdAt).toLocaleString()}
+                    {new Date(r.createdAt).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </time>
                 </div>
 
-                {/* Rating row — uses minimal ★ stars */}
+                {/* Rating row */}
                 <div className="mt-1 text-sm flex items-center gap-2">
                   <Stars value={r.rating} />
                   <span className="text-xs text-muted-foreground">{r.rating}/5</span>
@@ -246,7 +274,7 @@ export default function ReviewsList({
                 )}
               </div>
 
-              {/* Actions (always visible) */}
+              {/* Actions */}
               {mine && (
                 <div className="ml-1 flex gap-1">
                   <Button
@@ -302,7 +330,6 @@ export default function ReviewsList({
             <DialogDescription>Adjust your rating and thoughts.</DialogDescription>
           </DialogHeader>
 
-          {/* Rating — interactive but same ★ look */}
           <div
             className="mt-1 flex items-center gap-1 outline-none"
             role="radiogroup"
@@ -328,7 +355,6 @@ export default function ReviewsList({
                     active ? "text-yellow-500/90 scale-105" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {/* use plain star glyph for same visual language */}
                   ★
                   <span className="sr-only">{i} star{i > 1 ? "s" : ""}</span>
                 </button>
