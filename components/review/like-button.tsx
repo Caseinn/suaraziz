@@ -17,7 +17,7 @@ export function LikeButton({
     <Button
       size="sm"
       variant="ghost"
-      className="h-9 md:h-8 px-3 md:px-2 rounded-full"
+      className="h-9 md:h-8 px-3 md:px-2 rounded-full cursor-pointer"
       aria-pressed={liked}
       aria-label={liked ? "Unlike review" : "Like review"}
       onClick={onToggle}

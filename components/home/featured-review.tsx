@@ -57,7 +57,6 @@ export function FeaturedReviews() {
 
   const toggleLike = React.useCallback(async (reviewId: string) => {
     if (!isAuthed) {
-      // prompt login; you can pass a provider id if you want a specific one
       signIn()
       return
     }
@@ -77,7 +76,6 @@ export function FeaturedReviews() {
       const data = (await r.json()) as LikeState
       setLikeMap((prev) => ({ ...prev, [reviewId]: data }))
     } catch {
-      // revert on fail
       setLikeMap((prev) => {
         const cur = prev[reviewId] ?? { likes: 0, liked: false }
         const revert = {
@@ -87,7 +85,7 @@ export function FeaturedReviews() {
         return { ...prev, [reviewId]: revert }
       })
     }
-  }, [isAuthed]) // 👈 added dep
+  }, [isAuthed]) 
 
   return (
     <section className="px-4">

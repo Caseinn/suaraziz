@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -193,8 +192,15 @@ export default function ReviewForm({
             <p className="max-w-[22rem] text-sm text-muted-foreground">
               Sign in to rate and write a review for this track.
             </p>
-            <Button asChild size="sm" className="bg-primary hover:bg-primary/90">
-              <Link href={signInHref}>Sign in to review</Link>
+            <Button
+              size="sm"
+              className="bg-primary hover:bg-primary/90 cursor-pointer"
+              onClick={() => {
+                const callbackUrl = window.location.pathname
+                window.location.href = `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`
+              }}
+            >
+              Sign in to review
             </Button>
           </div>
         </div>

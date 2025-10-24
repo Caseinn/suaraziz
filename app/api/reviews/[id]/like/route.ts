@@ -12,20 +12,17 @@ const key = (userId: string, reviewId: string) => ({
   userId_reviewId: { userId, reviewId },
 })
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const { id: reviewId } = await params
+type RouteCtx = { params: Promise<{ id: string }> }
 
-  // always return the count
+export async function GET(_req: NextRequest, ctx: RouteCtx) {
+  const { id: reviewId } = await ctx.params
+
   const countRow = await prisma.review.findUnique({
     where: { id: reviewId },
     select: { likes: true },
   })
   let liked = false
 
-  // if logged in, check if THIS user liked it
   const session = await getServerSession(authOptions)
   const userId = (session?.user as { id?: string } | undefined)?.id
   if (userId) {
@@ -36,12 +33,9 @@ export async function GET(
   return NextResponse.json({ likes: countRow?.likes ?? 0, liked })
 }
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(_req: NextRequest, ctx: RouteCtx) {
   const userId = await requireUserId()
-  const { id: reviewId } = await params
+  const { id: reviewId } = await ctx.params
 
   const review = await prisma.review.findUnique({
     where: { id: reviewId },
@@ -63,7 +57,10 @@ export async function POST(
     ])
   }
 
-  const likes = (await prisma.review.findUnique({ where: { id: reviewId }, select: { likes: true } }))?.likes ?? 0
+  const likes =
+    (await prisma.review.findUnique({ where: { id: reviewId }, select: { likes: true } }))?.likes ??
+    0
+
   revalidatePath(`/track/${review.trackId}`)
   return NextResponse.json({ liked: !existing, likes })
 }

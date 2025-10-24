@@ -69,6 +69,9 @@ export default function ReviewsList({
   const [nextCursor, setNextCursor] = React.useState<string | null>(initialNextCursor)
   const [loading, setLoading] = React.useState(false)
 
+  // 🔐 same gate behavior as FeaturedReviews
+  const isAuthed = !!currentUserId
+
   // ----- Likes -----
   const [likeMap, setLikeMap] = React.useState<LikeMap>({})
   const [likesBootstrapped, setLikesBootstrapped] = React.useState(false)
@@ -125,22 +128,25 @@ export default function ReviewsList({
   }, [trackId, fetchLikeForIds])
 
   const toggleLike = async (reviewId: string) => {
+  if (!isAuthed) {
+    const callbackUrl = window.location.pathname
+    window.location.href = `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`
+    return
+  }
+
     const cur = likeMap[reviewId] ?? { likes: 0, liked: false }
     setLikeMap((prev) => ({
       ...prev,
       [reviewId]: { liked: !cur.liked, likes: cur.liked ? Math.max(0, cur.likes - 1) : cur.likes + 1 },
     }))
+
     try {
       const r = await fetch(`/api/reviews/${reviewId}/like`, { method: "POST" })
-      if (r.status === 401) {
-        setLikeMap((prev) => ({ ...prev, [reviewId]: cur }))
-        toast.info("Sign in to like reviews.")
-        return
-      }
       if (!r.ok) throw new Error()
       const data = (await r.json()) as LikeState
       setLikeMap((prev) => ({ ...prev, [reviewId]: data }))
     } catch {
+      // revert optimistic update
       setLikeMap((prev) => ({ ...prev, [reviewId]: cur }))
       toast.error("Failed to update like")
     }
@@ -171,13 +177,9 @@ export default function ReviewsList({
   const [editHover, setEditHover] = React.useState<number | null>(null)
   const [saving, setSaving] = React.useState(false)
 
-  // Only set which review is being edited
-  const startEdit = (r: Review) => {
-    setEditing(r)
-  }
+  const startEdit = (r: Review) => setEditing(r)
   const closeEdit = () => setEditing(null)
 
-  // Populate fields when `editing` changes (prevents initial flicker/1★ issue)
   React.useEffect(() => {
     if (!editing) return
     setEditTitle(editing.title ?? "")
@@ -213,7 +215,6 @@ export default function ReviewsList({
     }
   }
 
-  // keyboard support for rating (optional; keeps parity with your older version)
   const onStarsKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "ArrowRight") {
       e.preventDefault()
@@ -252,7 +253,6 @@ export default function ReviewsList({
   }
 
   // ===== Render =====
-
   if (!likesBootstrapped) {
     return (
       <section className="space-y-3">
@@ -319,7 +319,6 @@ export default function ReviewsList({
 
       {/* ===== Edit Dialog (controlled) ===== */}
       <Dialog open={!!editing} onOpenChange={(o) => (!o ? closeEdit() : null)}>
-        {/* key forces clean remount per review to avoid stale UI + star glitch */}
         <DialogContent key={editing?.id}>
           <DialogHeader>
             <DialogTitle>Edit review</DialogTitle>

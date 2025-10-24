@@ -1,6 +1,9 @@
 // app/sign-in/page.tsx
 "use client"
 
+import * as React from "react"
+import { Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { toast } from "sonner"
 import { FaSpotify } from "react-icons/fa"
@@ -12,19 +15,34 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import * as React from "react"
 
-export default function SignInPage() {
+// helper: append/replace a query param in a (possibly relative) URL
+function withQueryParam(url: string, key: string, value: string) {
+  try {
+    // Use current origin to safely parse relative paths like "/track/123"
+    const u = new URL(url, window.location.origin)
+    u.searchParams.set(key, value)
+    return u.pathname + (u.search ? `?${u.searchParams.toString()}` : "") + (u.hash || "")
+  } catch {
+    // if something odd, just return the original url
+    return url
+  }
+}
+
+/** Wraps the content that uses useSearchParams in a Suspense boundary */
+function SignInInner() {
   const [loading, setLoading] = React.useState(false)
+  const search = useSearchParams()
+  const rawCallback = search.get("callbackUrl") || "/"
+  const callbackUrl = withQueryParam(rawCallback, "signedIn", "1")
 
   const handleSpotifySignIn = async () => {
+    const t = toast.loading("Opening Spotify…")
     try {
       setLoading(true)
-      toast.loading("Opening Spotify…")
-      // Use query flag so a success toast can show after redirect via ToastOnAuth
-      await signIn("spotify", { callbackUrl: "/?signedIn=1" })
+      await signIn("spotify", { callbackUrl }) // NextAuth will redirect
     } catch {
-      toast.dismiss()
+      toast.dismiss(t)
       toast.error("Failed to start sign in. Please try again.")
       setLoading(false)
     }
@@ -47,7 +65,7 @@ export default function SignInPage() {
               variant="outline"
               disabled={loading}
               onClick={handleSpotifySignIn}
-              className="w-full h-12 gap-2 border-primary/30 hover:bg-primary/5"
+              className="w-full h-12 gap-2 border-primary/30 hover:bg-primary/5 cursor-pointer"
             >
               <FaSpotify className="w-5 h-5 text-[#1DB954]" />
               {loading ? "Redirecting…" : "Continue with Spotify"}
@@ -56,5 +74,13 @@ export default function SignInPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInInner />
+    </Suspense>
   )
 }
