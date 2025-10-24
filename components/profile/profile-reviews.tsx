@@ -3,9 +3,18 @@
 
 import * as React from "react"
 import Link from "next/link"
+import Image from "next/image"
+import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,10 +25,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Pencil, Trash2, Star } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { toast } from "sonner"
-import Image from "next/image"
+import { Pencil, Trash2, Star, MoreHorizontal } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 
 type Track = {
   id: string
@@ -40,39 +53,50 @@ type Review = {
   track?: Track | null
 }
 
+const BODY_MAX = 800
+
 export default function ProfileReviews({ initialItems }: { initialItems: Review[] }) {
   const [items, setItems] = React.useState<Review[]>(initialItems)
 
-  // Edit state
+  // Edit dialog state (fields derived from `editing`)
   const [editing, setEditing] = React.useState<Review | null>(null)
   const [editTitle, setEditTitle] = React.useState("")
   const [editBody, setEditBody] = React.useState("")
-  const [editRating, setEditRating] = React.useState(5)
+  const [editRating, setEditRating] = React.useState(0)
   const [editHover, setEditHover] = React.useState<number | null>(null)
   const [saving, setSaving] = React.useState(false)
 
-  // Delete state
+  // Delete dialog state
   const [deleting, setDeleting] = React.useState<Review | null>(null)
   const [deletingBusy, setDeletingBusy] = React.useState(false)
 
-  const openEdit = (r: Review) => {
-    setEditing(r)
-    setEditTitle(r.title ?? "")
-    setEditBody(r.body)
-    setEditRating(r.rating)
+  // Open edit: ONLY set which review we’re editing (avoid double-init flicker)
+  const openEdit = (r: Review) => setEditing(r)
+
+  // When `editing` changes, derive local fields from it
+  React.useEffect(() => {
+    if (!editing) return
+    setEditTitle(editing.title ?? "")
+    setEditBody(editing.body)
+    setEditRating(editing.rating)
     setEditHover(null)
-  }
+  }, [editing])
+
   const closeEdit = () => {
     if (saving) return
     setEditing(null)
     setEditTitle("")
     setEditBody("")
-    setEditRating(5)
+    setEditRating(0)
     setEditHover(null)
   }
 
   async function saveEdit() {
     if (!editing) return
+    const bodyOk = !!editBody.trim() && editBody.length <= BODY_MAX
+    const ratingOk = editRating >= 1 && editRating <= 5
+    if (!bodyOk || !ratingOk) return
+
     try {
       setSaving(true)
       const payload = { title: editTitle, body: editBody, rating: editRating }
@@ -83,7 +107,11 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
       })
       if (!res.ok) throw new Error("Failed")
       const json = (await res.json()) as { review: Review }
-      setItems((prev) => prev.map((it) => (it.id === editing.id ? { ...json.review, createdAt: String(json.review.createdAt) } : it)))
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === editing.id ? { ...json.review, createdAt: String(json.review.createdAt) } : it
+        )
+      )
       toast.success("Review updated")
       closeEdit()
     } catch {
@@ -125,53 +153,120 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
         {items.map((r) => {
           const t = r.track
           const created = new Date(r.createdAt)
+          const createdStr = created.toLocaleString(undefined, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
+
           return (
             <Card key={r.id} className="border-muted hover:border-primary/40 transition-colors">
-              <CardContent className="p-4 flex items-start gap-4">
-                {t?.albumImage && (
-                  <Image 
-                  src={t.albumImage} 
-                  alt={t.name} 
-                  width={64}
-                  height={64}
-                  loading="lazy"
-                  className="w-16 h-16 rounded-lg object-cover border"  />
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Link href={`/track/${t?.id ?? r.trackId}`} className="font-medium hover:underline truncate">
-                      {t?.name ?? "Unknown track"}
-                    </Link>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-sm text-muted-foreground truncate">
-                      {(t?.artists ?? []).join(", ")}{t?.album ? ` — ${t.album}` : ""}
-                    </span>
+              <CardContent className="p-4">
+                {/* Stack on mobile, row on larger screens */}
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  {/* Cover */}
+                  <div className="shrink-0">
+                    {t?.albumImage ? (
+                      <Image
+                        src={t.albumImage}
+                        alt={t.name}
+                        width={64}
+                        height={64}
+                        loading="lazy"
+                        sizes="(max-width: 640px) 48px, 64px"
+                        className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover border"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg border bg-muted" />
+                    )}
                   </div>
 
-                  <div className="mt-1 text-sm flex items-center gap-2">
-                    <span className="font-medium">⭐ {r.rating}</span>
-                    {r.title ? <span className="text-muted-foreground">— {r.title}</span> : null}
+                  {/* Info */}
+                  <div className="flex-1 min-w-0 break-words pr-20 md:pr-40">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        href={`/track/${t?.id ?? r.trackId}`}
+                        className="font-medium hover:underline truncate"
+                      >
+                        {t?.name ?? "Unknown track"}
+                      </Link>
+                      <span className="text-xs text-muted-foreground">•</span>
+                      <span className="text-sm text-muted-foreground truncate">
+                        {(t?.artists ?? []).join(", ")}
+                        {t?.album ? ` — ${t.album}` : ""}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 text-sm flex flex-wrap items-center gap-2">
+                      <span className="font-medium">⭐ {r.rating}</span>
+                      {r.title ? <span className="text-muted-foreground">— {r.title}</span> : null}
+                    </div>
+
+                    {r.body && (
+                      <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                        {r.body}
+                      </p>
+                    )}
+
+                    <div className="mt-2 text-xs text-muted-foreground">{createdStr}</div>
                   </div>
 
-                  {r.body && <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">{r.body}</p>}
+                  {/* Actions: desktop buttons + mobile kebab */}
+                  <div className="sm:ml-auto -mt-1">
+                    {/* Desktop (≥ md): buttons inline */}
+                    <div className="hidden md:flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => openEdit(r)}
+                        aria-label="Edit review"
+                        title="Edit"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => setDeleting(r)}
+                        aria-label="Delete review"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
 
-                  <div className="mt-2 text-xs text-muted-foreground">{created.toLocaleString()}</div>
-                </div>
-
-                <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(r)} aria-label="Edit review">
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-destructive"
-                    onClick={() => setDeleting(r)}
-                    aria-label="Delete review"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                    {/* Mobile (< md): kebab dropdown */}
+                    <div className="md:hidden">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            aria-label="More actions"
+                            title="More"
+                          >
+                            <MoreHorizontal className="w-5 h-5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" sideOffset={6} className="w-40">
+                          <DropdownMenuItem onClick={() => openEdit(r)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleting(r)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -179,14 +274,18 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
         })}
       </div>
 
-      {/* Edit Dialog */}
+      {/* ===== Edit Dialog (prevent star flash, no flicker) ===== */}
       <Dialog open={!!editing} onOpenChange={(o) => (!o ? closeEdit() : null)}>
-        <DialogContent>
+        {/* Key forces clean remount per review; prevent initial auto-focus */}
+        <DialogContent
+          key={editing?.id}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Edit review</DialogTitle>
           </DialogHeader>
 
-          {/* Rating stars */}
+          {/* Rating stars (hover + click only to avoid initial focus flash) */}
           <div className="flex items-center gap-1" role="radiogroup" aria-label="Edit rating out of 5">
             {[1, 2, 3, 4, 5].map((i) => {
               const active = (editHover ?? editRating) >= i
@@ -198,8 +297,6 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
                   aria-checked={editRating === i}
                   onMouseEnter={() => setEditHover(i)}
                   onMouseLeave={() => setEditHover(null)}
-                  onFocus={() => setEditHover(i)}
-                  onBlur={() => setEditHover(null)}
                   onClick={() => setEditRating(i)}
                   className={cn(
                     "p-1 rounded-md transition",
@@ -207,7 +304,9 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
                   )}
                 >
                   <Star className={cn("w-5 h-5", active && "fill-current")} />
-                  <span className="sr-only">{i} star{i > 1 ? "s" : ""}</span>
+                  <span className="sr-only">
+                    {i} star{i > 1 ? "s" : ""}
+                  </span>
                 </button>
               )
             })}
@@ -215,6 +314,7 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
           </div>
 
           <input
+            autoFocus
             className="w-full border rounded-md px-3 py-2 text-sm bg-background"
             placeholder="Title (optional)"
             value={editTitle}
@@ -225,6 +325,7 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
             placeholder="Your review"
             value={editBody}
             onChange={(e) => setEditBody(e.target.value)}
+            maxLength={BODY_MAX + 200}
           />
 
           <DialogFooter className="gap-2">
@@ -238,7 +339,7 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
         </DialogContent>
       </Dialog>
 
-      {/* Delete AlertDialog */}
+      {/* ===== Delete AlertDialog ===== */}
       <AlertDialog open={!!deleting} onOpenChange={(o) => (!o ? setDeleting(null) : null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
