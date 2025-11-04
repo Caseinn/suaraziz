@@ -21,8 +21,22 @@ export const authOptions: AuthOptions = {
   ],
   callbacks: {
     async session({ session, token, user }) {
-      if (session.user) {
-        ;(session.user as { id?: string }).id = user?.id ?? token?.sub ?? ""
+      const idFromContext = user?.id ?? token?.sub
+
+      if (session.user && idFromContext) {
+        ;(session.user as { id?: string }).id = idFromContext
+        return session
+      }
+
+      if (session.user?.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: session.user.email },
+          select: { id: true },
+        })
+
+        if (dbUser?.id) {
+          ;(session.user as { id?: string }).id = dbUser.id
+        }
       }
       return session
     },
