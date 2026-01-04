@@ -1,7 +1,4 @@
-// app/page.tsx
-"use client"
-
-import * as React from "react"
+﻿// app/page.tsx
 import { HomeScreen } from "@/components/home/home-screen"
 
 export default function Page() {

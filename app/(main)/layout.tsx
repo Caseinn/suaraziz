@@ -6,7 +6,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     <>
       <Header />
       {/* flex-1 makes main take remaining height, pushing Footer down */}
-      <main className="max-w-4xl mx-auto p-6 flex-1 w-full">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 sm:py-10 sm:px-6 md:px-8 lg:px-10">
+        {children}
+      </main>
       <Footer />
     </>
   )

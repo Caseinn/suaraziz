@@ -1,4 +1,4 @@
-// app/sign-in/page.tsx
+﻿// app/sign-in/page.tsx
 "use client"
 
 import * as React from "react"
@@ -6,41 +6,31 @@ import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { toast } from "sonner"
-import { FaSpotify } from "react-icons/fa"
+import { FaGoogle } from "react-icons/fa"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 
-// helper: append/replace a query param in a (possibly relative) URL
 function withQueryParam(url: string, key: string, value: string) {
   try {
-    // Use current origin to safely parse relative paths like "/track/123"
     const u = new URL(url, window.location.origin)
     u.searchParams.set(key, value)
     return u.pathname + (u.search ? `?${u.searchParams.toString()}` : "") + (u.hash || "")
   } catch {
-    // if something odd, just return the original url
     return url
   }
 }
 
-/** Wraps the content that uses useSearchParams in a Suspense boundary */
 function SignInInner() {
   const [loading, setLoading] = React.useState(false)
   const search = useSearchParams()
   const rawCallback = search.get("callbackUrl") || "/"
   const callbackUrl = withQueryParam(rawCallback, "signedIn", "1")
 
-  const handleSpotifySignIn = async () => {
-    const t = toast.loading("Opening Spotify…")
+  const handleGoogleSignIn = async () => {
+    const t = toast.loading("Opening Google...")
     try {
       setLoading(true)
-      await signIn("spotify", { callbackUrl }) // NextAuth will redirect
+      await signIn("google", { callbackUrl })
     } catch {
       toast.dismiss(t)
       toast.error("Failed to start sign in. Please try again.")
@@ -49,27 +39,32 @@ function SignInInner() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-md">
-        <Card className="overflow-hidden">
-          <CardHeader className="text-center space-y-2">
-            <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-            <CardDescription>
-              Sign in with your Spotify account to continue
-            </CardDescription>
-          </CardHeader>
+    <div className="min-h-screen flex items-center justify-center px-5 sm:px-6 md:px-8 py-12 sm:py-16">
+      <div className="w-full max-w-lg space-y-5 sm:space-y-6">
+        <div className="text-center space-y-2 sm:space-y-3">
+          <p className="text-xs uppercase tracking-[0.32em] text-muted-foreground">
+            Entry access
+          </p>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display">Sign in to write</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            We use Google to confirm your identity and connect you to the archive.
+          </p>
+        </div>
 
-          <CardContent className="space-y-4">
+        <Card className="border-border/70 bg-card/80">
+          <CardContent className="p-5 sm:p-6 space-y-4">
             <Button
               type="button"
-              variant="outline"
               disabled={loading}
-              onClick={handleSpotifySignIn}
-              className="w-full h-12 gap-2 border-primary/30 hover:bg-primary/5 cursor-pointer"
+              onClick={handleGoogleSignIn}
+              className="w-full h-11 sm:h-12 gap-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-[10px] sm:text-[11px] uppercase tracking-[0.3em]"
             >
-              <FaSpotify className="w-5 h-5 text-[#1DB954]" />
-              {loading ? "Redirecting…" : "Continue with Spotify"}
+              <FaGoogle className="w-5 h-5 text-black" />
+              {loading ? "Redirecting..." : "Continue with Google"}
             </Button>
+            <p className="text-[11px] sm:text-xs text-muted-foreground text-center">
+              We never post without your permission.
+            </p>
           </CardContent>
         </Card>
       </div>
