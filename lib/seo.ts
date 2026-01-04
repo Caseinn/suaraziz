@@ -72,5 +72,5 @@ export function buildJsonLd() {
 }
 
 export function getSocialImageUrl() {
-  return `${seoConfig.origin}/opengraph-image.png`
+  return `${seoConfig.origin}/og-images.webp`
 }
