@@ -1,11 +1,11 @@
-"use client"
+﻿"use client"
 
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Pencil, Trash2, MoreHorizontal } from "lucide-react"
-import { Stars } from "@/components/home/stars"
+import { GrooveBars } from "@/components/ui/groove"
 import { LikeButton } from "@/components/review/like-button"
+import { Pencil, Trash2, MoreHorizontal } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,17 +57,15 @@ export function ReviewCard({
   const createdIso = new Date(r.createdAt).toISOString()
 
   return (
-    <article className="rounded-2xl border p-4 bg-card/50 hover:shadow-sm transition-all">
-      {/* Header row — stacks on mobile */}
-      <div className="relative flex items-start gap-3">
-        {/* Avatar */}
+    <article className="rounded-2xl border border-border/70 bg-card/70 p-4 sm:p-5 transition-all">
+      <div className="relative flex items-start gap-4">
         {r.author?.image ? (
           <Image
             src={r.author.image}
             alt={name}
             width={40}
             height={40}
-            className="w-9 h-9 md:w-10 md:h-10 rounded-full border object-cover"
+            className="w-9 h-9 md:w-10 md:h-10 rounded-full border border-border/70 object-cover"
           />
         ) : (
           <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm md:text-base font-semibold">
@@ -75,16 +73,15 @@ export function ReviewCard({
           </div>
         )}
 
-        {/* Content — reserve space on right so text never overlaps absolute actions */}
-        <div className="flex-1 min-w-0 pr-14 md:pr-16 break-words">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm md:text-[15px]">
+        <div className="flex-1 min-w-0 pr-12 sm:pr-16 md:pr-20 break-words">
+          <div className="flex flex-wrap items-center gap-2 text-sm md:text-[15px]">
             <Link
               href={`/user/${r.authorId}`}
-              className="font-medium truncate hover:underline hover:text-primary transition-colors"
+              className="font-medium truncate hover:text-primary transition-colors"
             >
               {name}
             </Link>
-            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground">/</span>
             <time dateTime={createdIso} className="text-muted-foreground">
               {new Date(r.createdAt).toLocaleString(undefined, {
                 dateStyle: "medium",
@@ -93,10 +90,10 @@ export function ReviewCard({
             </time>
           </div>
 
-          <div className="mt-1 text-sm md:text-[15px] flex flex-wrap items-center gap-2">
-            <Stars value={r.rating} />
-            <span className="text-xs md:text-sm text-muted-foreground">{r.rating}/5</span>
-            {r.title ? <span className="text-sm md:text-base">— {r.title}</span> : null}
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+            <GrooveBars value={r.rating} size="sm" />
+            <span className="text-xs sm:text-sm text-muted-foreground">{r.rating}/5</span>
+            {r.title ? <span className="text-sm sm:text-base">- {r.title}</span> : null}
           </div>
 
           {r.body && (
@@ -106,12 +103,9 @@ export function ReviewCard({
           )}
         </div>
 
-        {/* Actions — absolute top-right; mobile uses kebab */}
         <div className="absolute top-0 right-0 flex items-center gap-1 whitespace-nowrap">
-          {/* Like: visible on all breakpoints; larger tap target on mobile */}
           <LikeButton liked={like.liked} likes={like.likes} onToggle={onToggleLike} />
 
-          {/* Desktop (≥ md): separate buttons */}
           {mine && (
             <div className="hidden md:flex items-center gap-1">
               <Button
@@ -135,7 +129,6 @@ export function ReviewCard({
             </div>
           )}
 
-          {/* Mobile (< md): kebab menu */}
           {mine && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -168,8 +161,7 @@ export function ReviewCard({
         </div>
       </div>
 
-      {/* Full-width comments */}
-      {children && <div className="mt-3 pt-3 border-t">{children}</div>}
+      {children && <div className="mt-3 pt-3 border-t border-border/70">{children}</div>}
     </article>
   )
 }

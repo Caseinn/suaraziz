@@ -1,11 +1,11 @@
-// components/home/results.tsx
+﻿// components/home/results.tsx
 "use client"
 
 import * as React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import type { Item } from "./types"
-import Image from "next/image"
 
 export function Results({
   items,
@@ -17,40 +17,57 @@ export function Results({
   anchorRef: React.RefObject<HTMLDivElement | null>
 }) {
   return (
-    <div ref={anchorRef}>
+    <section id="archive" ref={anchorRef} className="space-y-5 sm:space-y-6">
       {error && (
-        <div className="px-4">
-          <div className="max-w-4xl mx-auto mb-4 text-center text-sm text-destructive">
+        <Card>
+          <CardContent className="p-5 text-sm text-destructive text-center">
             {error}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {items.length > 0 && (
-        <section className="px-4 pb-16">
-          <h2 className="text-2xl font-semibold mb-6 text-center">Results</h2>
-          <ul className="space-y-4 max-w-4xl mx-auto">
-            {items.map((t) => (
-              <Link
-                key={t.id}
-                href={`/track/${t.id}`}
-                className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl transition"
-              >
-                <Card className="relative overflow-hidden border border-border/40 hover:shadow-md hover:border-primary/40 transition-all duration-200">
-                  <CardContent className="p-4 flex items-center gap-4">
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.32em] text-muted-foreground">
+                Archive
+              </p>
+              <h2 className="mt-2 text-xl sm:text-2xl font-display">Search results</h2>
+              <p className="text-sm text-muted-foreground">
+                {items.length} {items.length === 1 ? "entry" : "entries"} found
+              </p>
+            </div>
+            <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+              Indexed
+            </span>
+          </div>
+
+          <ol className="space-y-4 border-l border-border/70 pl-4 sm:pl-6">
+            {items.map((t, idx) => (
+              <li key={t.id} className="relative">
+                <span className="absolute -left-[7px] sm:-left-[9px] top-6 h-2.5 w-2.5 rounded-full bg-primary/80" />
+                <Link
+                  href={`/track/${t.id}`}
+                  className="group block rounded-2xl border border-border/70 bg-card/80 p-4 sm:p-5 hover:border-primary/60 transition"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
                     {t.image ? (
-                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border shrink-0">
+                      <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden border border-border/70 shrink-0">
                         <Image
                           src={t.image}
                           alt={t.name}
-                          width={64}
-                          height={64}
+                          width={56}
+                          height={56}
                           loading="lazy"
-                          className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
+                          className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
                         />
                       </div>
                     ) : (
-                      <div className="w-16 h-16 rounded-lg bg-muted border shrink-0" />
+                      <div className="w-14 h-14 rounded-xl bg-muted border border-border/70 shrink-0" />
                     )}
 
                     <div className="flex-1 min-w-0">
@@ -58,24 +75,21 @@ export function Results({
                         {t.name}
                       </h3>
                       <p className="text-sm text-muted-foreground truncate">
-                        {t.artists.join(", ")} — {t.album}
+                        {t.artists.join(", ")}
+                        {t.album ? ` - ${t.album}` : ""}
                       </p>
                     </div>
 
-                    {/* Right arrow hint on hover */}
-                    <div className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-sm">→</span>
-                    </div>
-                  </CardContent>
-
-                  {/* Subtle hover overlay */}
-                  <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </Card>
-              </Link>
+                    <span className="hidden sm:inline text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                      Open
+                    </span>
+                  </div>
+                </Link>
+              </li>
             ))}
-          </ul>
-        </section>
+          </ol>
+        </div>
       )}
-    </div>
+    </section>
   )
 }

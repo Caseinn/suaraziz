@@ -1,13 +1,17 @@
-// app/profile/profile-reviews.tsx
+﻿// app/profile/profile-reviews.tsx
 "use client"
 
 import * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { GrooveBars } from "@/components/ui/groove"
+import { GrooveRatingInput } from "@/components/ui/groove-rating-input"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -25,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Pencil, Trash2, Star, MoreHorizontal } from "lucide-react"
+import { Pencil, Trash2, MoreHorizontal } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -47,7 +51,7 @@ type Review = {
   rating: number
   title: string | null
   body: string
-  createdAt: string // ISO
+  createdAt: string
   authorId: string
   trackId: string
   track?: Track | null
@@ -56,30 +60,25 @@ type Review = {
 const BODY_MAX = 800
 
 export default function ProfileReviews({ initialItems }: { initialItems: Review[] }) {
+  const router = useRouter()
   const [items, setItems] = React.useState<Review[]>(initialItems)
 
-  // Edit dialog state (fields derived from `editing`)
   const [editing, setEditing] = React.useState<Review | null>(null)
   const [editTitle, setEditTitle] = React.useState("")
   const [editBody, setEditBody] = React.useState("")
   const [editRating, setEditRating] = React.useState(0)
-  const [editHover, setEditHover] = React.useState<number | null>(null)
   const [saving, setSaving] = React.useState(false)
 
-  // Delete dialog state
   const [deleting, setDeleting] = React.useState<Review | null>(null)
   const [deletingBusy, setDeletingBusy] = React.useState(false)
 
-  // Open edit: ONLY set which review we’re editing (avoid double-init flicker)
   const openEdit = (r: Review) => setEditing(r)
 
-  // When `editing` changes, derive local fields from it
   React.useEffect(() => {
     if (!editing) return
     setEditTitle(editing.title ?? "")
     setEditBody(editing.body)
     setEditRating(editing.rating)
-    setEditHover(null)
   }, [editing])
 
   const closeEdit = () => {
@@ -88,7 +87,6 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
     setEditTitle("")
     setEditBody("")
     setEditRating(0)
-    setEditHover(null)
   }
 
   async function saveEdit() {
@@ -114,6 +112,7 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
       )
       toast.success("Review updated")
       closeEdit()
+      router.refresh()
     } catch {
       toast.error("Failed to update review")
     } finally {
@@ -130,6 +129,7 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
       setItems((prev) => prev.filter((r) => r.id !== deleting.id))
       toast.success("Review deleted")
       setDeleting(null)
+      router.refresh()
     } catch {
       toast.error("Failed to delete review")
     } finally {
@@ -139,8 +139,8 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
 
   if (items.length === 0) {
     return (
-      <Card className="border-muted">
-        <CardContent className="p-6 text-sm text-muted-foreground">
+      <Card className="border-border/70 bg-card/70">
+        <CardContent className="p-5 sm:p-6 text-sm text-muted-foreground">
           No reviews yet. Search a song on the homepage to get started.
         </CardContent>
       </Card>
@@ -159,11 +159,9 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
           })
 
           return (
-            <Card key={r.id} className="border-muted hover:border-primary/40 transition-colors">
-              <CardContent className="p-4">
-                {/* Stack on mobile, row on larger screens */}
-                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                  {/* Cover */}
+            <Card key={r.id} className="border-border/70 bg-card/70">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                   <div className="shrink-0">
                     {t?.albumImage ? (
                       <Image
@@ -173,32 +171,32 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
                         height={64}
                         loading="lazy"
                         sizes="(max-width: 640px) 48px, 64px"
-                        className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover border"
+                        className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl object-cover border border-border/70"
                       />
                     ) : (
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg border bg-muted" />
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl border border-border/70 bg-muted" />
                     )}
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0 break-words pr-20 md:pr-40">
+                  <div className="flex-1 min-w-0 break-words pr-12 sm:pr-20 md:pr-40">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Link
                         href={`/track/${t?.id ?? r.trackId}`}
-                        className="font-medium hover:underline truncate"
+                        className="font-medium hover:text-primary transition-colors truncate"
                       >
                         {t?.name ?? "Unknown track"}
                       </Link>
-                      <span className="text-xs text-muted-foreground">•</span>
+                      <span className="text-xs text-muted-foreground">/</span>
                       <span className="text-sm text-muted-foreground truncate">
                         {(t?.artists ?? []).join(", ")}
-                        {t?.album ? ` — ${t.album}` : ""}
+                        {t?.album ? ` - ${t.album}` : ""}
                       </span>
                     </div>
 
-                    <div className="mt-1 text-sm flex flex-wrap items-center gap-2">
-                      <span className="font-medium">⭐ {r.rating}</span>
-                      {r.title ? <span className="text-muted-foreground">— {r.title}</span> : null}
+                    <div className="mt-2 text-sm flex flex-wrap items-center gap-2">
+                      <GrooveBars value={r.rating} size="sm" />
+                      <span className="text-xs text-muted-foreground">{r.rating}/5</span>
+                      {r.title ? <span className="text-muted-foreground">- {r.title}</span> : null}
                     </div>
 
                     {r.body && (
@@ -210,9 +208,7 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
                     <div className="mt-2 text-xs text-muted-foreground">{createdStr}</div>
                   </div>
 
-                  {/* Actions: desktop buttons + mobile kebab */}
                   <div className="sm:ml-auto -mt-1">
-                    {/* Desktop (≥ md): buttons inline */}
                     <div className="hidden md:flex gap-1">
                       <Button
                         size="icon"
@@ -236,7 +232,6 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
                       </Button>
                     </div>
 
-                    {/* Mobile (< md): kebab dropdown */}
                     <div className="md:hidden">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -274,54 +269,28 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
         })}
       </div>
 
-      {/* ===== Edit Dialog (prevent star flash, no flicker) ===== */}
       <Dialog open={!!editing} onOpenChange={(o) => (!o ? closeEdit() : null)}>
-        {/* Key forces clean remount per review; prevent initial auto-focus */}
-        <DialogContent
-          key={editing?.id}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
+        <DialogContent key={editing?.id} onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Edit review</DialogTitle>
           </DialogHeader>
 
-          {/* Rating stars (hover + click only to avoid initial focus flash) */}
-          <div className="flex items-center gap-1" role="radiogroup" aria-label="Edit rating out of 5">
-            {[1, 2, 3, 4, 5].map((i) => {
-              const active = (editHover ?? editRating) >= i
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  role="radio"
-                  aria-checked={editRating === i}
-                  onMouseEnter={() => setEditHover(i)}
-                  onMouseLeave={() => setEditHover(null)}
-                  onClick={() => setEditRating(i)}
-                  className={cn(
-                    "p-1 rounded-md transition",
-                    active ? "text-yellow-500" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Star className={cn("w-5 h-5", active && "fill-current")} />
-                  <span className="sr-only">
-                    {i} star{i > 1 ? "s" : ""}
-                  </span>
-                </button>
-              )
-            })}
-            <span className="ml-2 text-xs text-muted-foreground">{editRating}/5</span>
-          </div>
+          <GrooveRatingInput
+            value={editRating}
+            onChange={setEditRating}
+            size="md"
+            label="Edit rating"
+          />
 
-          <input
+          <Input
             autoFocus
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+            className="bg-input/40"
             placeholder="Title (optional)"
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
           />
-          <textarea
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background min-h-24"
+          <Textarea
+            className="bg-input/40 min-h-24"
             placeholder="Your review"
             value={editBody}
             onChange={(e) => setEditBody(e.target.value)}
@@ -329,17 +298,20 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
           />
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={closeEdit} disabled={saving}>
+            <Button variant="outline" onClick={closeEdit} disabled={saving} className="rounded-full">
               Cancel
             </Button>
-            <Button onClick={saveEdit} disabled={saving} className="bg-primary hover:bg-primary/90">
-              {saving ? "Saving…" : "Save"}
+            <Button
+              onClick={saveEdit}
+              disabled={saving}
+              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {saving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ===== Delete AlertDialog ===== */}
       <AlertDialog open={!!deleting} onOpenChange={(o) => (!o ? setDeleting(null) : null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -348,7 +320,9 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
               This action cannot be undone. Your review will be permanently removed.
               {deleting?.body ? (
                 <span className="block mt-2 text-foreground italic">
-                  “{deleting.body.length > 80 ? `${deleting.body.slice(0, 80)}…` : deleting.body}”
+                  &ldquo;
+                  {deleting.body.length > 80 ? `${deleting.body.slice(0, 80)}...` : deleting.body}
+                  &rdquo;
                 </span>
               ) : null}
             </AlertDialogDescription>
@@ -360,7 +334,7 @@ export default function ProfileReviews({ initialItems }: { initialItems: Review[
               disabled={deletingBusy}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              {deletingBusy ? "Deleting…" : "Delete"}
+              {deletingBusy ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

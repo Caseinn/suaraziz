@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { signOut } from "next-auth/react"
 import { toast } from "sonner"
@@ -16,15 +16,14 @@ import {
 
 export default function SignOutDialog({
   children,
-  callbackUrl = "/?signedOut=1", // ✅ default with success flag
+  callbackUrl = "/?signedOut=1",
 }: {
   children: React.ReactNode
   callbackUrl?: string
 }) {
   const handleConfirm = async () => {
-    toast.loading("Signing out…")
+    toast.loading("Signing out...")
     await signOut({ callbackUrl })
-    // Redirect; ToastOnAuth shows success
   }
 
   return (
@@ -34,14 +33,12 @@ export default function SignOutDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Sign out?</AlertDialogTitle>
           <AlertDialogDescription>
-            You’ll be logged out of SuaraAziz and returned to the homepage.
+            You will be logged out of SuarAziz and returned to the homepage.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirm}>
-            Sign out
-          </AlertDialogAction>
+          <AlertDialogAction onClick={handleConfirm}>Sign out</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -1,13 +1,16 @@
-// components/review/ReviewList.tsx
+﻿// components/review/review-list.tsx
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Loader2, Star } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
 import { ReviewCard } from "@/components/review/review-card"
 import { Comments } from "@/components/review/comments"
+import { GrooveRatingInput } from "@/components/ui/groove-rating-input"
 import {
   Dialog,
   DialogContent,
@@ -63,16 +66,15 @@ export default function ReviewsList({
   pageSize?: number
   currentUserId: string | null
 }) {
+  const router = useRouter()
   const [items, setItems] = React.useState<Review[]>(
     initialItems.map((r) => ({ ...r, createdAt: String(r.createdAt) }))
   )
   const [nextCursor, setNextCursor] = React.useState<string | null>(initialNextCursor)
   const [loading, setLoading] = React.useState(false)
 
-  // 🔐 same gate behavior as FeaturedReviews
   const isAuthed = !!currentUserId
 
-  // ----- Likes -----
   const [likeMap, setLikeMap] = React.useState<LikeMap>({})
   const [likesBootstrapped, setLikesBootstrapped] = React.useState(false)
 
@@ -108,7 +110,6 @@ export default function ReviewsList({
     })()
   }, [items, likesBootstrapped, fetchLikeForIds])
 
-  // Prepend newly created review
   React.useEffect(() => {
     const onCreated = (e: Event) => {
       const ce = e as CustomEvent<Review>
@@ -128,11 +129,11 @@ export default function ReviewsList({
   }, [trackId, fetchLikeForIds])
 
   const toggleLike = async (reviewId: string) => {
-  if (!isAuthed) {
-    const callbackUrl = window.location.pathname
-    window.location.href = `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`
-    return
-  }
+    if (!isAuthed) {
+      const callbackUrl = window.location.pathname
+      window.location.href = `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`
+      return
+    }
 
     const cur = likeMap[reviewId] ?? { likes: 0, liked: false }
     setLikeMap((prev) => ({
@@ -146,7 +147,6 @@ export default function ReviewsList({
       const data = (await r.json()) as LikeState
       setLikeMap((prev) => ({ ...prev, [reviewId]: data }))
     } catch {
-      // revert optimistic update
       setLikeMap((prev) => ({ ...prev, [reviewId]: cur }))
       toast.error("Failed to update like")
     }
@@ -169,12 +169,10 @@ export default function ReviewsList({
     }
   }
 
-  // ===== EDIT dialog state & handlers =====
   const [editing, setEditing] = React.useState<Review | null>(null)
   const [editTitle, setEditTitle] = React.useState("")
   const [editBody, setEditBody] = React.useState("")
   const [editRating, setEditRating] = React.useState(0)
-  const [editHover, setEditHover] = React.useState<number | null>(null)
   const [saving, setSaving] = React.useState(false)
 
   const startEdit = (r: Review) => setEditing(r)
@@ -185,7 +183,6 @@ export default function ReviewsList({
     setEditTitle(editing.title ?? "")
     setEditBody(editing.body)
     setEditRating(editing.rating)
-    setEditHover(null)
   }, [editing])
 
   const saveEdit = async () => {
@@ -208,6 +205,7 @@ export default function ReviewsList({
       )
       toast.success("Review updated")
       setEditing(null)
+      router.refresh()
     } catch {
       toast.error("Failed to update review")
     } finally {
@@ -215,17 +213,6 @@ export default function ReviewsList({
     }
   }
 
-  const onStarsKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "ArrowRight") {
-      e.preventDefault()
-      setEditRating((p) => Math.min(5, p + 1))
-    } else if (e.key === "ArrowLeft") {
-      e.preventDefault()
-      setEditRating((p) => Math.max(1, p - 1))
-    }
-  }
-
-  // ===== DELETE dialog state & handlers =====
   const [deleting, setDeleting] = React.useState<Review | null>(null)
   const [deletingBusy, setDeletingBusy] = React.useState(false)
 
@@ -245,6 +232,7 @@ export default function ReviewsList({
       })
       toast.success("Review deleted")
       setDeleting(null)
+      router.refresh()
     } catch {
       toast.error("Failed to delete review")
     } finally {
@@ -252,12 +240,14 @@ export default function ReviewsList({
     }
   }
 
-  // ===== Render =====
   if (!likesBootstrapped) {
     return (
       <section className="space-y-3">
         {items.slice(0, pageSize).map((_, i) => (
-          <div key={i} className="rounded-2xl border p-4 animate-pulse">
+          <div
+            key={i}
+            className="rounded-2xl border border-border/70 bg-card/60 p-4 sm:p-5 animate-pulse"
+          >
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-full bg-muted" />
               <div className="flex-1 space-y-2">
@@ -303,11 +293,11 @@ export default function ReviewsList({
             <Button
               onClick={loadMore}
               disabled={loading}
-              className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+              className="w-full sm:w-auto rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-[10px] sm:text-[11px] uppercase tracking-[0.3em]"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading…
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...
                 </>
               ) : (
                 "Load more"
@@ -317,74 +307,47 @@ export default function ReviewsList({
         )}
       </section>
 
-      {/* ===== Edit Dialog (controlled) ===== */}
       <Dialog open={!!editing} onOpenChange={(o) => (!o ? closeEdit() : null)}>
         <DialogContent key={editing?.id}>
           <DialogHeader>
             <DialogTitle>Edit review</DialogTitle>
           </DialogHeader>
 
-          {/* Rating stars */}
-          <div
-            className="flex items-center gap-1 outline-none"
-            role="radiogroup"
-            aria-label="Edit rating out of 5"
-            tabIndex={0}
-            onKeyDown={onStarsKeyDown}
-          >
-            {[1, 2, 3, 4, 5].map((i) => {
-              const active = (editHover ?? editRating) >= i
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  role="radio"
-                  aria-checked={editRating === i}
-                  onMouseEnter={() => setEditHover(i)}
-                  onMouseLeave={() => setEditHover(null)}
-                  onFocus={() => setEditHover(i)}
-                  onBlur={() => setEditHover(null)}
-                  onClick={() => setEditRating(i)}
-                  className={cn(
-                    "p-1 rounded-md transition",
-                    active ? "text-yellow-500" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Star className={cn("w-5 h-5", active && "fill-current")} />
-                  <span className="sr-only">
-                    {i} star{i > 1 ? "s" : ""}
-                  </span>
-                </button>
-              )
-            })}
-            <span className="ml-2 text-xs text-muted-foreground">{editRating}/5</span>
-          </div>
+          <GrooveRatingInput
+            value={editRating}
+            onChange={setEditRating}
+            size="md"
+            label="Edit rating"
+          />
 
-          <input
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+          <Input
+            className="bg-input/40"
             placeholder="Title (optional)"
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
           />
-          <textarea
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background min-h-24"
+          <Textarea
+            className="bg-input/40 min-h-24"
             placeholder="Your review"
             value={editBody}
             onChange={(e) => setEditBody(e.target.value)}
           />
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={closeEdit} disabled={saving}>
+            <Button variant="outline" onClick={closeEdit} disabled={saving} className="rounded-full">
               Cancel
             </Button>
-            <Button onClick={saveEdit} disabled={saving} className="bg-primary hover:bg-primary/90">
-              {saving ? "Saving…" : "Save"}
+            <Button
+              onClick={saveEdit}
+              disabled={saving}
+              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {saving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ===== Delete AlertDialog (controlled) ===== */}
       <AlertDialog open={!!deleting} onOpenChange={(o) => (!o ? setDeleting(null) : null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -393,7 +356,9 @@ export default function ReviewsList({
               This action cannot be undone. Your review will be permanently removed.
               {deleting?.body ? (
                 <span className="block mt-2 text-foreground italic">
-                  “{deleting.body.length > 80 ? `${deleting.body.slice(0, 80)}…` : deleting.body}”
+                  &ldquo;
+                  {deleting.body.length > 80 ? `${deleting.body.slice(0, 80)}...` : deleting.body}
+                  &rdquo;
                 </span>
               ) : null}
             </AlertDialogDescription>
@@ -405,7 +370,7 @@ export default function ReviewsList({
               disabled={deletingBusy}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              {deletingBusy ? "Deleting…" : "Delete"}
+              {deletingBusy ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

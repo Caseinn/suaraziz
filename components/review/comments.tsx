@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import * as React from "react"
 import { Button } from "@/components/ui/button"
@@ -26,8 +26,7 @@ export function Comments({ reviewId }: { reviewId: string }) {
   const [loading, setLoading] = React.useState(false)
   const [body, setBody] = React.useState("")
 
-  // initial load — oldest first
-  const boot = async () => {
+  const boot = React.useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch(`/api/reviews/${reviewId}/comments?limit=5`, { cache: "no-store" })
@@ -37,11 +36,11 @@ export function Comments({ reviewId }: { reviewId: string }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [reviewId])
 
   React.useEffect(() => {
     if (open && items.length === 0 && !loading) void boot()
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, items.length, loading, boot])
 
   const loadMore = async () => {
     if (!nextCursor || loading) return
@@ -88,18 +87,17 @@ export function Comments({ reviewId }: { reviewId: string }) {
   return (
     <div className="mt-2">
       <button
-        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+        className="text-[11px] sm:text-xs uppercase tracking-[0.3em] text-muted-foreground hover:text-foreground transition"
         onClick={() => setOpen((v) => !v)}
       >
         {open ? "Hide comments" : "View comments"}
       </button>
 
       {open && (
-        <div className="mt-2 space-y-3">
-          {/* Comment input */}
-          <div className="flex gap-2">
+        <div className="mt-3 sm:mt-4 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Input
-              placeholder="Write a comment…"
+              placeholder="Leave a note"
               value={body}
               onChange={(e) => setBody(e.target.value)}
               onKeyDown={(e) => {
@@ -108,14 +106,18 @@ export function Comments({ reviewId }: { reviewId: string }) {
                   submit()
                 }
               }}
+              className="bg-input/40"
             />
-            <Button onClick={submit} disabled={loading || !body.trim()}>
+            <Button
+              onClick={submit}
+              disabled={loading || !body.trim()}
+              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-[10px] sm:text-[11px] uppercase tracking-[0.3em]"
+            >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Post"}
             </Button>
           </div>
 
-          {/* Comments list */}
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {items.map((c) => {
               const created = new Date(c.createdAt)
               const timeStr = created.toLocaleString(undefined, {
@@ -127,29 +129,27 @@ export function Comments({ reviewId }: { reviewId: string }) {
               return (
                 <li
                   key={c.id}
-                  className="flex items-start gap-3 text-sm border-b border-muted/20 pb-2"
+                  className="flex items-start gap-3 text-sm border-b border-border/70 pb-3"
                 >
-                  {/* Avatar */}
-                    {c.author?.image ? (
-                      <Image
-                        src={c.author.image}
-                        alt={name}
-                        width={28}
-                        height={28}
-                        className="w-7 h-7 rounded-full border object-cover"
-                      />
-                    ) : (
-                      <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold">
-                        {name[0]?.toUpperCase() ?? "U"}
-                      </div>
-                    )}
+                  {c.author?.image ? (
+                    <Image
+                      src={c.author.image}
+                      alt={name}
+                      width={28}
+                      height={28}
+                      className="w-7 h-7 rounded-full border border-border/70 object-cover"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold">
+                      {name[0]?.toUpperCase() ?? "U"}
+                    </div>
+                  )}
 
-                  {/* Body + Meta */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2">
                       <Link
                         href={`/user/${c.author?.id}`}
-                        className="font-medium hover:underline hover:text-primary transition-colors"
+                        className="font-medium hover:text-primary transition-colors"
                       >
                         {name}
                       </Link>
@@ -164,8 +164,8 @@ export function Comments({ reviewId }: { reviewId: string }) {
                     <p className="text-muted-foreground break-words">{c.body}</p>
                   </div>
                 </li>
-              )
-            })}
+              )}
+            )}
           </ul>
 
           {nextCursor && (

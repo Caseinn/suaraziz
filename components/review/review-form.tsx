@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Star, LockKeyhole } from "lucide-react"
+import { GrooveRatingInput } from "@/components/ui/groove-rating-input"
+import { LockKeyhole } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -14,6 +15,7 @@ type Props = Readonly<{
   trackId: string
   disabled?: boolean
   signInHref?: string
+  lockReason?: "auth" | "existing" | null
 }>
 
 const BODY_MAX = 800
@@ -22,21 +24,23 @@ export default function ReviewForm({
   trackId,
   disabled = false,
   signInHref = "/sign-in",
+  lockReason,
 }: Props): React.ReactElement {
   const router = useRouter()
 
   const [rating, setRating] = React.useState<number>(0)
-  const [hovered, setHovered] = React.useState<number | null>(null)
   const [title, setTitle] = React.useState<string>("")
   const [body, setBody] = React.useState<string>("")
   const [loading, setLoading] = React.useState<boolean>(false)
 
-  // unique, stable ids (eslint a11y-friendly if multiple forms on page)
   const titleId = React.useId()
   const bodyId = React.useId()
 
+  const resolvedLock = lockReason ?? (disabled ? "auth" : null)
+  const isLocked = !!resolvedLock
+
   const canSubmit =
-    !disabled &&
+    !isLocked &&
     !loading &&
     body.trim().length > 0 &&
     body.length <= BODY_MAX &&
@@ -55,7 +59,6 @@ export default function ReviewForm({
           body: JSON.stringify({ trackId, rating, title, body }),
         })
         if (!res.ok) {
-          // try to surface server error message if present
           let msg = "Failed to post review"
           try {
             const j = (await res.json()) as { error?: string }
@@ -66,19 +69,14 @@ export default function ReviewForm({
           throw new Error(msg)
         }
 
-        // created review from server
         const { review } = (await res.json()) as { review: unknown }
-        // fire a typed-ish custom event (consumer will validate shape)
         window.dispatchEvent(new CustomEvent("review:created", { detail: review }))
 
-        // reset form
         setTitle("")
         setBody("")
         setRating(0)
 
         toast.success("Review posted successfully")
-
-        // refresh server data (avg + first page)
         router.refresh()
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Failed to post review"
@@ -94,49 +92,20 @@ export default function ReviewForm({
     <div className="relative">
       <form
         onSubmit={handleSubmit}
-        className={cn("space-y-4 rounded-2xl border p-4 bg-card/50")}
+        className={cn("space-y-4 sm:space-y-5 rounded-2xl border border-border/70 p-4 sm:p-5 bg-card/70")}
         aria-busy={loading}
       >
-        <fieldset className="space-y-2" aria-disabled={disabled} disabled={disabled}>
-          <legend className="text-sm font-medium">Your Rating</legend>
-          <div className="flex items-center gap-1" role="radiogroup" aria-label="Rating out of 5">
-            {[1, 2, 3, 4, 5].map((i) => {
-              const active = (hovered ?? rating) >= i
-              // stable callbacks to avoid re-renders; simple inline is fine too,
-              // but these silence some perf/a11y linters in stricter configs
-              const onEnter = () => !disabled && setHovered(i)
-              const onLeave = () => !disabled && setHovered(null)
-              const onClick = () => !disabled && setRating(i)
-
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  role="radio"
-                  aria-checked={rating === i}
-                  onMouseEnter={onEnter}
-                  onMouseLeave={onLeave}
-                  onFocus={onEnter}
-                  onBlur={onLeave}
-                  onClick={onClick}
-                  className={cn(
-                    "p-1 rounded-md transition",
-                    active ? "text-yellow-500" : "text-muted-foreground hover:text-foreground",
-                    disabled && "opacity-50 cursor-not-allowed"
-                  )}
-                  tabIndex={disabled ? -1 : 0}
-                >
-                  <Star className={cn("h-6 w-6", active && "fill-current")} aria-hidden="true" />
-                  <span className="sr-only">
-                    {i} star{i > 1 ? "s" : ""}
-                  </span>
-                </button>
-              )
-            })}
-            <span className="ml-2 text-sm text-muted-foreground" aria-live="polite">
-              {rating}/5
-            </span>
-          </div>
+        <fieldset className="space-y-2 sm:space-y-3" aria-disabled={isLocked} disabled={isLocked}>
+          <legend className="text-[11px] sm:text-xs uppercase tracking-[0.32em] text-muted-foreground">
+            Your groove
+          </legend>
+          <GrooveRatingInput
+            value={rating}
+            onChange={setRating}
+            disabled={disabled || loading}
+            size="lg"
+            label="Rating out of 5"
+          />
         </fieldset>
 
         <div className="space-y-2">
@@ -145,21 +114,22 @@ export default function ReviewForm({
             id={titleId}
             value={title}
             onChange={(e) => setTitle(e.currentTarget.value)}
-            placeholder='e.g., “Perfect for rainy days”'
+            placeholder="Example: Perfect for rainy nights"
             disabled={disabled || loading}
             inputMode="text"
             autoComplete="off"
+            className="bg-input/40"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor={bodyId}>Your Review</Label>
+          <Label htmlFor={bodyId}>Your review</Label>
           <Textarea
             id={bodyId}
             value={body}
             onChange={(e) => setBody(e.currentTarget.value)}
-            placeholder="What did you think of this track?"
-            className="min-h-32"
+            placeholder="What did you feel, notice, or question while listening?"
+            className="min-h-32 bg-input/40"
             disabled={disabled || loading}
             maxLength={BODY_MAX + 200}
           />
@@ -177,31 +147,39 @@ export default function ReviewForm({
         <Button
           type="submit"
           disabled={!canSubmit}
-          className="bg-primary hover:bg-primary/90"
+          className="h-10 sm:h-11 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-[10px] sm:text-[11px] uppercase tracking-[0.3em]"
         >
-          {loading ? "Posting..." : "Post Review"}
+          {loading ? "Posting..." : "Post review"}
         </Button>
       </form>
 
-      {disabled && (
+      {isLocked && (
         <div className="pointer-events-auto absolute inset-0 flex items-center justify-center rounded-2xl bg-background/60 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border bg-card">
+            <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card">
               <LockKeyhole className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
             </div>
-            <p className="max-w-[22rem] text-sm text-muted-foreground">
-              Sign in to rate and write a review for this track.
-            </p>
-            <Button
-              size="sm"
-              className="bg-primary hover:bg-primary/90 cursor-pointer"
-              onClick={() => {
-                const callbackUrl = window.location.pathname
-                window.location.href = `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`
-              }}
-            >
-              Sign in to review
-            </Button>
+            {resolvedLock === "existing" ? (
+              <p className="max-w-[22rem] text-sm text-muted-foreground px-2">
+                You already reviewed this track. Edit your entry in the list below.
+              </p>
+            ) : (
+              <>
+                <p className="max-w-[22rem] text-sm text-muted-foreground">
+                  Sign in to rate and write a review for this track.
+                </p>
+                <Button
+                  size="sm"
+                  className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                  onClick={() => {
+                    const callbackUrl = window.location.pathname
+                    window.location.href = `${signInHref}?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                  }}
+                >
+                  Sign in to review
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
