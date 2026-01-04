@@ -1,6 +1,6 @@
 // app/layout.tsx
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import type { Metadata, Viewport } from "next"
+import { Archivo_Black, Space_Grotesk, Space_Mono } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
 import ToastOnAuth from "@/components/toast-on-auth"
@@ -8,9 +8,29 @@ import { Suspense } from "react"
 import { Providers } from "@/components/providers"
 import { getSocialImageUrl, seoConfig } from "@/lib/seo"
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] })
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] })
+const displayFont = Archivo_Black({
+  variable: "--font-display",
+  weight: "400",
+  subsets: ["latin"],
+})
+const bodyFont = Space_Grotesk({
+  variable: "--font-body",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+})
+const monoFont = Space_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+})
 const socialImage = getSocialImageUrl()
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0d0d0d",
+  colorScheme: "dark",
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -70,8 +90,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`min-h-screen flex flex-col ${geistSans.variable} ${geistMono.variable} font-sans`}>
+    <html lang="en" className="dark">
+      <body
+        className={`min-h-screen flex flex-col font-sans antialiased ${bodyFont.variable} ${displayFont.variable} ${monoFont.variable}`}
+      >
         <Providers>
           {children}
           <Toaster richColors position="top-center" closeButton />
