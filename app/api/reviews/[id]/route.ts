@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/requireUser"
 import { revalidatePath } from "next/cache"
+import { isTrustedOrigin, rateLimit } from "@/lib/security"
 
 export const dynamic = "force-dynamic"
 
@@ -13,13 +14,40 @@ type PatchBody = {
 }
 
 const BODY_MAX = 800
+const BODY_MAX_BYTES = 10_000
 
 export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const userId = await requireUserId()
+  if (!isTrustedOrigin(req)) {
+    return NextResponse.json({ error: "Bad origin" }, { status: 403 })
+  }
+
+  let userId: string
+  try {
+    userId = await requireUserId()
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { success, reset } = await rateLimit(`reviews:update:${userId}`, {
+    limit: 20,
+    windowMs: 60_000,
+  })
+  if (!success) {
+    const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+    return NextResponse.json(
+      { error: "Too Many Requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    )
+  }
   const { id } = await ctx.params  // ⬅️ await
+
+  const contentLength = Number(req.headers.get("content-length") ?? "0")
+  if (contentLength > BODY_MAX_BYTES) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 })
+  }
 
   const payload = (await req.json()) as PatchBody
 
@@ -52,7 +80,16 @@ export async function PATCH(
   const review = await prisma.review.update({
     where: { id },
     data,
-    include: { author: true },
+    select: {
+      id: true,
+      trackId: true,
+      authorId: true,
+      rating: true,
+      title: true,
+      body: true,
+      createdAt: true,
+      author: { select: { id: true, name: true, displayName: true, image: true } },
+    },
   })
 
   revalidatePath(`/track/${exists.trackId}`)
@@ -60,10 +97,31 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const userId = await requireUserId()
+  if (!isTrustedOrigin(req)) {
+    return NextResponse.json({ error: "Bad origin" }, { status: 403 })
+  }
+
+  let userId: string
+  try {
+    userId = await requireUserId()
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { success, reset } = await rateLimit(`reviews:delete:${userId}`, {
+    limit: 20,
+    windowMs: 60_000,
+  })
+  if (!success) {
+    const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+    return NextResponse.json(
+      { error: "Too Many Requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    )
+  }
   const { id } = await ctx.params  // ⬅️ await
 
   const exists = await prisma.review.findUnique({

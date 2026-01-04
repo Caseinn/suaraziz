@@ -1,8 +1,20 @@
 // app/api/featured-reviews/route.ts
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestIp, rateLimit } from "@/lib/security"
 
-export async function GET() {
+export async function GET(req: Request) {
+  const ip = getRequestIp(req)
+  if (ip !== "unknown") {
+    const { success, reset } = await rateLimit(`featured:get:${ip}`, { limit: 60, windowMs: 60_000 })
+    if (!success) {
+      const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      )
+    }
+  }
   // Fetch recent reviews with rating > 0
   const reviews = await prisma.review.findMany({
     where: { rating: { gt: 0 } },

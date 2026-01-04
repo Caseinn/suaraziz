@@ -3,12 +3,26 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { requireUserId } from "@/lib/requireUser"
 import { revalidatePath } from "next/cache"
+import { getRequestIp, isTrustedOrigin, rateLimit } from "@/lib/security"
 
 export const dynamic = "force-dynamic"
 
 const BODY_MAX = 800
+const BODY_MAX_BYTES = 10_000
 
 export async function GET(req: Request) {
+  const ip = getRequestIp(req)
+  if (ip !== "unknown") {
+    const { success, reset } = await rateLimit(`reviews:get:${ip}`, { limit: 120, windowMs: 60_000 })
+    if (!success) {
+      const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      )
+    }
+  }
+
   const url = new URL(req.url)
   const trackId = url.searchParams.get("trackId")
   const limitParam = url.searchParams.get("limit")
@@ -19,7 +33,16 @@ export async function GET(req: Request) {
   const [itemsPlusOne, avgAgg] = await Promise.all([
     prisma.review.findMany({
       where: { trackId },
-      include: { author: true },
+      select: {
+        id: true,
+        trackId: true,
+        authorId: true,
+        rating: true,
+        title: true,
+        body: true,
+        createdAt: true,
+        author: { select: { id: true, name: true, displayName: true, image: true } },
+      },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
       take,
@@ -41,7 +64,34 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const userId = await requireUserId()
+  if (!isTrustedOrigin(req)) {
+    return NextResponse.json({ error: "Bad origin" }, { status: 403 })
+  }
+
+  let userId: string
+  try {
+    userId = await requireUserId()
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { success, reset } = await rateLimit(`reviews:create:${userId}`, {
+    limit: 20,
+    windowMs: 60_000,
+  })
+  if (!success) {
+    const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+    return NextResponse.json(
+      { error: "Too Many Requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    )
+  }
+
+  const contentLength = Number(req.headers.get("content-length") ?? "0")
+  if (contentLength > BODY_MAX_BYTES) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 })
+  }
+
   const { trackId, rating, title, body } = await req.json()
 
   if (!trackId) {
@@ -58,6 +108,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid body length" }, { status: 400 })
   }
 
+  const existing = await prisma.review.findFirst({
+    where: { trackId, authorId: userId },
+    select: { id: true },
+  })
+  if (existing) {
+    return NextResponse.json({ error: "Review already exists" }, { status: 409 })
+  }
+
   await prisma.track.upsert({
     where: { id: trackId },
     create: { id: trackId, name: "Unknown", artists: [], album: "" },
@@ -66,7 +124,16 @@ export async function POST(req: Request) {
 
   const review = await prisma.review.create({
     data: { trackId, rating: r, title: title ?? null, body: b, authorId: userId },
-    include: { author: true },
+    select: {
+      id: true,
+      trackId: true,
+      authorId: true,
+      rating: true,
+      title: true,
+      body: true,
+      createdAt: true,
+      author: { select: { id: true, name: true, displayName: true, image: true } },
+    },
   })
 
   // Revalidate the track page so avg/header and first page update
