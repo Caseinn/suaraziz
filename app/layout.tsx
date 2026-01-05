@@ -60,6 +60,7 @@ export async function generateMetadata(): Promise<Metadata> {
           width: 1200,
           height: 630,
           alt: seoConfig.title,
+          type: "image/webp",
         },
       ],
     },
@@ -68,7 +69,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: seoConfig.title,
       description: seoConfig.description,
       creator: seoConfig.twitterHandle,
-      images: [socialImage],
+      images: [{ url: socialImage, alt: seoConfig.title }],
     },
     icons: {
       icon: [

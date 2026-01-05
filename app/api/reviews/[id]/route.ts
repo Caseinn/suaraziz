@@ -49,7 +49,17 @@ export async function PATCH(
     return NextResponse.json({ error: "Payload too large" }, { status: 413 })
   }
 
-  const payload = (await req.json()) as PatchBody
+  const raw = await req.text()
+  if (Buffer.byteLength(raw, "utf8") > BODY_MAX_BYTES) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 })
+  }
+
+  let payload: PatchBody
+  try {
+    payload = raw ? (JSON.parse(raw) as PatchBody) : {}
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
 
   const exists = await prisma.review.findUnique({
     where: { id },

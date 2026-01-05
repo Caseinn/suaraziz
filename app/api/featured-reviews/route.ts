@@ -5,15 +5,14 @@ import { getRequestIp, rateLimit } from "@/lib/security"
 
 export async function GET(req: Request) {
   const ip = getRequestIp(req)
-  if (ip !== "unknown") {
-    const { success, reset } = await rateLimit(`featured:get:${ip}`, { limit: 60, windowMs: 60_000 })
-    if (!success) {
-      const retryAfter = Math.ceil((reset - Date.now()) / 1000)
-      return NextResponse.json(
-        { error: "Too Many Requests" },
-        { status: 429, headers: { "Retry-After": String(retryAfter) } }
-      )
-    }
+  const key = ip === "unknown" ? "unknown" : ip
+  const { success, reset } = await rateLimit(`featured:get:${key}`, { limit: 60, windowMs: 60_000 })
+  if (!success) {
+    const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+    return NextResponse.json(
+      { error: "Too Many Requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    )
   }
   // Fetch recent reviews with rating > 0
   const reviews = await prisma.review.findMany({

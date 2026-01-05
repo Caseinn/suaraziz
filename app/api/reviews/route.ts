@@ -12,15 +12,14 @@ const BODY_MAX_BYTES = 10_000
 
 export async function GET(req: Request) {
   const ip = getRequestIp(req)
-  if (ip !== "unknown") {
-    const { success, reset } = await rateLimit(`reviews:get:${ip}`, { limit: 120, windowMs: 60_000 })
-    if (!success) {
-      const retryAfter = Math.ceil((reset - Date.now()) / 1000)
-      return NextResponse.json(
-        { error: "Too Many Requests" },
-        { status: 429, headers: { "Retry-After": String(retryAfter) } }
-      )
-    }
+  const key = ip === "unknown" ? "unknown" : ip
+  const { success, reset } = await rateLimit(`reviews:get:${key}`, { limit: 120, windowMs: 60_000 })
+  if (!success) {
+    const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+    return NextResponse.json(
+      { error: "Too Many Requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    )
   }
 
   const url = new URL(req.url)
@@ -92,7 +91,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 })
   }
 
-  const { trackId, rating, title, body } = await req.json()
+  const raw = await req.text()
+  if (Buffer.byteLength(raw, "utf8") > BODY_MAX_BYTES) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 })
+  }
+
+  let parsed: { trackId?: string; rating?: number; title?: string; body?: string }
+  try {
+    parsed = raw ? (JSON.parse(raw) as { trackId?: string; rating?: number; title?: string; body?: string }) : {}
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
+  const { trackId, rating, title, body } = parsed
 
   if (!trackId) {
     return NextResponse.json({ error: "Missing trackId" }, { status: 400 })

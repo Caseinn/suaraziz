@@ -5,6 +5,8 @@ type RateLimitOptions = {
 
 import { getRedis } from "@/lib/redis"
 
+const isProd = process.env.NODE_ENV === "production"
+
 const allowedOrigin = (() => {
   const raw =
     process.env.NEXT_PUBLIC_SITE_URL ??
@@ -49,6 +51,9 @@ export async function rateLimit(key: string, options: RateLimitOptions) {
   const redis = getRedis()
   const now = Date.now()
   if (!redis) {
+    if (isProd) {
+      return { success: false, remaining: 0, reset: now + options.windowMs }
+    }
     return { success: true, remaining: options.limit, reset: now + options.windowMs }
   }
 

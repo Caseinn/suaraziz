@@ -15,15 +15,14 @@ export async function GET(
   ctx: { params: Promise<{ id: string }> }
 ) {
   const ip = getRequestIp(req)
-  if (ip !== "unknown") {
-    const { success, reset } = await rateLimit(`comments:get:${ip}`, { limit: 120, windowMs: 60_000 })
-    if (!success) {
-      const retryAfter = Math.ceil((reset - Date.now()) / 1000)
-      return NextResponse.json(
-        { error: "Too Many Requests" },
-        { status: 429, headers: { "Retry-After": String(retryAfter) } }
-      )
-    }
+  const key = ip === "unknown" ? "unknown" : ip
+  const { success, reset } = await rateLimit(`comments:get:${key}`, { limit: 120, windowMs: 60_000 })
+  if (!success) {
+    const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+    return NextResponse.json(
+      { error: "Too Many Requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    )
   }
 
   const { id: reviewId } = await ctx.params
@@ -83,7 +82,19 @@ export async function POST(
     return NextResponse.json({ error: "Payload too large" }, { status: 413 })
   }
 
-  const { body } = await req.json()
+  const raw = await req.text()
+  if (Buffer.byteLength(raw, "utf8") > BODY_MAX_BYTES) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 })
+  }
+
+  let parsed: { body?: string }
+  try {
+    parsed = raw ? (JSON.parse(raw) as { body?: string }) : {}
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
+  const { body } = parsed
 
   const b = String(body ?? "").trim()
   if (!b || b.length > BODY_MAX) {
