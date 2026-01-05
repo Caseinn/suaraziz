@@ -1,8 +1,8 @@
 import { headers } from "next/headers"
 import { buildJsonLd } from "@/lib/seo"
 
-export default function Head() {
-  const nonce = headers().get("x-nonce") ?? undefined
+export default async function Head() {
+  const nonce = (await headers()).get("x-nonce") ?? undefined
   const jsonLd = buildJsonLd()
 
   return (
