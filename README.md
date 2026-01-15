@@ -1,3 +1,4 @@
+![SuarAziz Preview](public/og-images.webp)
 # SuarAziz — A Collective Listening Journal
 
 **[Live App](https://suaraziz.vercel.app/)** | **[GitHub Repository](https://github.com/caseinn/suaraziz)**
