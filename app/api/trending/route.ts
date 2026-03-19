@@ -6,13 +6,13 @@ import { getRedis } from "@/lib/redis"
 import { getRequestIp, rateLimit } from "@/lib/security"
 
 const KWORB_URL = "https://kworb.net/spotify/country/global_weekly.html"
-const KWORB_ROWS = 10
+const KWORB_ROWS = 20
 const RESULT_LIMIT = 8
 const KWORB_REVALIDATE_SECONDS = 60 * 60
 const TRENDING_CACHE_KEY = "trending:items"
 const TRENDING_CACHE_TTL_SECONDS = 24 * 60 * 60
 const SEARCH_CACHE_TTL_SECONDS = 48 * 60 * 60
-const SEARCH_MISS_TTL_SECONDS = 6 * 60 * 60
+const SEARCH_MISS_TTL_SECONDS = 60 * 60
 const KWORB_TIMEOUT_MS = 10_000
 const SPOTIFY_TIMEOUT_MS = 8_000
 
@@ -23,6 +23,8 @@ type Item = {
   album: string
   image?: string
 }
+
+type SearchResult = Item & { previewUrl?: string | null; popularity?: number | null }
 
 type KworbRow = { title: string; artist: string }
 
@@ -45,6 +47,15 @@ type CachedSearch = Item | { miss: true }
 
 const SPOTIFY_TOKEN_KEY = "spotify:app_token"
 const SPOTIFY_SEARCH_PREFIX = "spotify:search:"
+
+function cleanSearchQuery(input: string): string {
+  return input
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/\s*-\s*(w\/|feat\.?|featuring|ft\.?)\s*/gi, " ")
+    .replace(/\s*\+\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
 
 async function fetchWithTimeout(
   url: string,
@@ -168,53 +179,88 @@ async function upsertTrackFromItem(item: Item, extras?: TrackExtras) {
   }
 }
 
-async function searchSpotifyTrack(query: string): Promise<Item | null> {
-  const cached = await getCachedSearch(query)
+async function searchSpotifyTrack(
+  rawTitle: string,
+  rawArtist: string | null,
+  cacheKey: string
+): Promise<Item | null> {
+  const cached = await getCachedSearch(cacheKey)
   if (cached) {
     if ("miss" in cached) return null
     await upsertTrackFromItem(cached)
     return cached
   }
 
-  let token = await getAppToken()
-  const url = `https://api.spotify.com/v1/search?type=track&limit=1&q=${encodeURIComponent(query)}`
-  let res = await fetchWithTimeout(
-    url,
-    { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
-    SPOTIFY_TIMEOUT_MS
-  )
+  const cleanTitle = cleanSearchQuery(rawTitle)
+  const cleanArtist = rawArtist ? cleanSearchQuery(rawArtist) : null
 
-  if (res.status === 401) {
-    token = await getAppToken(true)
-    res = await fetchWithTimeout(
-      url,
-      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
-      SPOTIFY_TIMEOUT_MS
-    )
-  }
-
-  if (!res.ok) return null
-  const data = (await res.json()) as SpotifySearchResponse
-  const track = data.tracks?.items?.[0]
-  if (!track) {
-    await setCachedMiss(query)
+  const result = await trySearch(cleanTitle, cleanArtist)
+  if (!result) {
+    await setCachedMiss(cacheKey)
     return null
   }
 
-  const item: Item = {
-    id: track.id,
-    name: track.name,
-    artists: track.artists.map((a) => a.name),
-    album: track.album?.name ?? "",
-    image: track.album?.images?.[0]?.url,
+  await upsertTrackFromItem(result, {
+    previewUrl: result.previewUrl ?? null,
+    popularity: result.popularity ?? null,
+  })
+  await setCachedSearch(cacheKey, result)
+  return result
+}
+
+async function trySearch(
+  title: string,
+  artist: string | null
+): Promise<SearchResult | null> {
+  const token = await getAppToken()
+
+  async function attempt(query: string, tok: string): Promise<SearchResult | null> {
+    const url = `https://api.spotify.com/v1/search?type=track&limit=1&q=${encodeURIComponent(query)}`
+    let res = await fetchWithTimeout(
+      url,
+      { headers: { Authorization: `Bearer ${tok}` }, cache: "no-store" },
+      SPOTIFY_TIMEOUT_MS
+    )
+
+    if (res.status === 401) {
+      tok = await getAppToken(true)
+      res = await fetchWithTimeout(
+        url,
+        { headers: { Authorization: `Bearer ${tok}` }, cache: "no-store" },
+        SPOTIFY_TIMEOUT_MS
+      )
+    }
+
+    if (!res.ok) {
+      return null
+    }
+    const data = (await res.json()) as SpotifySearchResponse
+    const track = data.tracks?.items?.[0]
+    if (!track) {
+      return null
+    }
+
+    return {
+      id: track.id,
+      name: track.name,
+      artists: track.artists.map((a) => a.name),
+      album: track.album?.name ?? "",
+      image: track.album?.images?.[0]?.url,
+      previewUrl: track.preview_url ?? null,
+      popularity: track.popularity ?? null,
+    }
   }
 
-  await upsertTrackFromItem(item, {
-    previewUrl: track.preview_url ?? null,
-    popularity: track.popularity ?? null,
-  })
-  await setCachedSearch(query, item)
-  return item
+  if (artist) {
+    const query = `track:${title} artist:${artist}`
+    const result = await attempt(query, token)
+    if (result) return result
+  }
+
+  const result = await attempt(title, token)
+  if (result) return result
+
+  return null
 }
 
 async function fetchKworbRows(): Promise<KworbRow[]> {
@@ -272,10 +318,8 @@ async function buildTrendingFromKworb(rows: KworbRow[]): Promise<Item[]> {
   for (const row of rows) {
     if (items.length >= RESULT_LIMIT) break
     if (!row.title) continue
-    const query = row.artist
-      ? `track:"${row.title}" artist:"${row.artist}"`
-      : `track:"${row.title}"`
-    const item = await searchSpotifyTrack(query)
+    const cacheKey = `kworb:${cleanSearchQuery(row.title)}:${cleanSearchQuery(row.artist ?? "")}`
+    const item = await searchSpotifyTrack(row.title, row.artist, cacheKey)
     if (item && !items.some((existing) => existing.id === item.id)) {
       items.push(item)
     }
